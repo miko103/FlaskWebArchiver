@@ -1,13 +1,23 @@
 from flask import Flask, request, render_template, url_for, abort, redirect, session, render_template_string
-from FlaskWebArchiver.func import Errors, check_password, makeAccount, get_stats_by_username, get_website_from_time, update_stats, generate_code, add_vercode_2db, check_vercode_validity, change_user_password
-from FlaskWebArchiver.secret_key import SECRET_KEY, MAIL_ACCOUNT, MAIL_PASS
+from FlaskWebArchiver.func import Errors, Database
 from FlaskWebArchiver.scrape_website import scrape
 from flask_mail import Mail, Message
+import yaml
+
+# Gets info from cfg.yml file
+with open("cfg.yml", "r") as f:
+    cfg = yaml.safe_load(f)
+    MAIL_ACCOUNT = cfg["SECRET_KEY"]
+    MAIL_PASS =  cfg["MAIL_PASS"]
+    SECRET_KEY = cfg["SECRET_KEY"]
+    db_name = cfg["database_name"]
+
 
 #app.config
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 ERRORS = Errors(app)
+DB = Database(db_name)
 
 #mail config
 app.config["MAIL_SERVER"] = "smtp.office365.com"
@@ -32,7 +42,7 @@ def signup():
         username = request.form['username']
         password = request.form['password']
         email = request.form['email']
-        if makeAccount(username,password,email) == True: # if account making process in completed correctly (if True)
+        if DB.makeAccount(username,password,email) == True: # if account making process in completed correctly (if True)
             session["logged_in"] = True
             session["username"] = username
             return redirect(url_for("dashboard"))
@@ -50,7 +60,7 @@ def login():
     if request.method == "POST":
         username = request.form['username']
         password = request.form['password']
-        if check_password(username, password) == True: # if authenticated
+        if DB.check_password(username, password) == True: # if authenticated
             session["logged_in"] = True
             session["username"] = username
             return redirect(url_for("dashboard"))
@@ -79,23 +89,23 @@ def forgotpassword():
         if request.form["stage"] == "stage1": # if in first stage
             target_mail = request.form["emailField"]
             msg = Message("Password Reset Code", sender='flaskwebarchiver@outlook.com',recipients=[target_mail])
-            code = generate_code()
+            code = DB.generate_code()
             msg.body=f"{RESET_PASSWORD_SUBJECT}{code}"
             mail.send(msg)
             print(f"sent mail to {target_mail}")
-            add_vercode_2db(code,target_mail)
+            DB.add_vercode_2db(code,target_mail)
             return render_template("forgotpassword.html",stage="stage2",mail=target_mail)
         if request.form["stage"] == "stage2": # if in second stage
             input_code = request.form["input_code"]
             target_mail = request.form["mail"]
-            if check_vercode_validity(input_code, target_mail) == True:
+            if DB.check_vercode_validity(input_code, target_mail) == True:
                 return render_template("forgotpassword.html",stage="stage3",mail=target_mail)
             else:
                 return render_template("error.html", error="Your input code was not valid. Please try the whole process again.")
         if request.form["stage"] == "stage3": # if finished
             newpassword = request.form["newpassword"]
             target_mail = request.form["mail"]
-            change_user_password(newpassword,target_mail)
+            DB.change_user_password(newpassword,target_mail)
             return render_template("forgotpassword.html",stage="done")
     
 
@@ -105,7 +115,7 @@ def forgotpassword():
 def dashboard():
     if "logged_in" in session and session["logged_in"]:
         session_username = session.get("username")
-        stats = get_stats_by_username(session_username)
+        stats = DB.get_stats_by_username(session_username)
         return render_template("dashboard.html", total_searches=stats[0], total_saves=stats[1], saved_sites=stats[2])
     else:
         return render_template("dashboard.html")
@@ -116,7 +126,7 @@ def archive():
     if request.method == "POST": # if authed archive
         if "logged_in" in session and session["logged_in"]:
             url_to_archive = request.form["archive"]
-            update_stats(session["username"], "total_saves", 1)
+            DB.update_stats(session["username"], "total_saves", 1)
             return render_template("loading.html", urltoarchive=url_to_archive)
         else: # if not authed archive
             session["free_archives"] -= 1
@@ -156,10 +166,10 @@ def search():
         url = request.form["url"]
         start_date = request.form["start_date"]
         end_date = request.form["end_date"]
-        website_list = get_website_from_time(url,start_date,end_date)    
+        website_list = DB.get_website_from_time(url,start_date,end_date)    
         print(website_list)
         try:
-            update_stats(session["username"], "total_searches", 1)
+            DB.update_stats(session["username"], "total_searches", 1)
         except:
             print("failed to update statistics. user may not be logged in")
             pass
