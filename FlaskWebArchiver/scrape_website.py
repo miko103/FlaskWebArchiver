@@ -3,7 +3,8 @@ from bs4 import BeautifulSoup
 import os
 from urllib.parse import urlsplit
 import datetime
-from FlaskWebArchiver.func import create_website_save
+from FlaskWebArchiver.func import Database
+import yaml
 
 def save_file(name, raw_data):
     try:
@@ -13,6 +14,11 @@ def save_file(name, raw_data):
         print(f"an error occured when saving file called {name}")
 
 def scrape(url, scraped_by_user):
+
+    with open("cfg.yml") as f:
+        DB = Database(yaml.safe_load(f)["database_name"])
+
+
     netloc = urlsplit(url)[1]
     scheme = urlsplit(url)[0]
     query = urlsplit(url)[3].split(".")
@@ -57,5 +63,5 @@ def scrape(url, scraped_by_user):
     
     indexpath = f"./FlaskWebArchiver/website_saves/{netloc}_{timestamp}/index.html" # this is what will be saved in the database
 
-    create_website_save(url, indexpath, timestamp, scraped_by_user)
+    DB.create_website_save(url, indexpath, timestamp, scraped_by_user)
     return indexpath
