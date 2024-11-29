@@ -1,7 +1,6 @@
 flask
-sqlite3
-os
 bs4
 flask[async]
 flask_mail
 pyyaml
+requests
