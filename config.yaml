@@ -1,6 +1,0 @@
-{
-  'SECRET_KEY':'',
-  'database_name':'',
-  'MAIL_ACCOUNT':'',
-  'MAIN_PASS':''
-}
